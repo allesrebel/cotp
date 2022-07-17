@@ -24,18 +24,17 @@ con = sqlite3.connect('website.db')
 
 # Check if we have a table
 table_check = "SELECT name FROM sqlite_master WHERE type='table' AND name='users';"
-if con.execute(table_check).rowcount == -1:
-    print('Creating Schema for database')
-    # Create the table, it doesn't exist
-    con.execute("""
-    create table users
-    (
-        id int not null,
-        user_token unqiue varchar(32) not null,
-        shared_secret varchar(32),
-        primary key (id)
-    );
-    """)
+
+# Create the table, it doesn't exist
+con.execute("""
+create table if not exists users
+(
+    id int not null,
+    user_token unqiue varchar(32) not null,
+    shared_secret varchar(32),
+    primary key (id)
+);
+""")
 
 ##
 # The actual webserver part
