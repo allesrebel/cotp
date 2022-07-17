@@ -39,25 +39,41 @@ create table if not exists users
 ##
 # The actual webserver part
 ## 
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import HTTPServer, SimpleHTTPRequestHandler
+from urllib.parse import urlparse
 
-class HTTPHandler(BaseHTTPRequestHandler):
+class HTTPHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
-        self.write_response(b'')
+        forwarded_headers = self.headers['Forwarded'].split(';')
+        forwarded_headers_dictionary = {}
+        for header in forwarded_headers:
+            key, value = header.split('=')
+            forwarded_headers_dictionary[key] = value
+
+        print(forwarded_headers_dictionary)
+        print(self.headers)
+        # update self path so SimpleHTTPRequestHeader can do
+        # the file look up!
+        # We'll do a VERY simple router, if root or index, we point
+        # index.html in the html folder
+        if 'index' in forwarded_headers_dictionary['uri'] or '/' == forwarded_headers_dictionary['uri']:
+            self.path = 'html/index.html'
+            return super().do_GET()
+        
+        # we didn't git a token, so we just return 404
+        self.send_response(404)
+        self.end_headers()
+        self.wfile.write(b'Page Not Found') #TODO: maybe make a better 404 page?
 
     def do_POST(self):
+        query = urlparse(self.path).query
         content_length = int(self.headers.get('content-length', 0))
         body = self.rfile.read(content_length)
+        print(content_length)
+        print(query)
+        print(body)
+        return super().do_POST()
 
-        self.write_response(body)
-
-    def write_response(self, content):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(content)
-
-        print(self.headers)
-        print(content.decode('utf-8'))
 
 print('About to listen on http://localhost:8000')
 http_server = HTTPServer(('localhost', 8000), HTTPHandler)
