@@ -29,18 +29,21 @@ table_check = "SELECT name FROM sqlite_master WHERE type='table' AND name='users
 con.execute("""
 create table if not exists users
 (
-    id int not null,
+    id int,
     user_token unqiue varchar(32) not null,
     shared_secret varchar(32),
     primary key (id)
 );
 """)
+# TODO: replace with sqlite
+db = {}
 
 ##
 # The actual webserver part
 ## 
-from http.server import HTTPServer, SimpleHTTPRequestHandler
+from http.server import HTTPServer, SimpleHTTPRequestHandler, HTTPStatus
 from urllib.parse import urlparse
+import re
 
 class HTTPHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
@@ -50,7 +53,6 @@ class HTTPHandler(SimpleHTTPRequestHandler):
             key, value = header.split('=')
             forwarded_headers_dictionary[key] = value
 
-        print(forwarded_headers_dictionary)
         print(self.headers)
         # update self path so SimpleHTTPRequestHeader can do
         # the file look up!
@@ -59,6 +61,64 @@ class HTTPHandler(SimpleHTTPRequestHandler):
         if 'index' in forwarded_headers_dictionary['uri'] or '/' == forwarded_headers_dictionary['uri']:
             self.path = 'html/index.html'
             return super().do_GET()
+
+        # Check if we were given a user token
+        elif len(re.split(r'\/|\?|\=', self.path)) == 2:
+            user = forwarded_headers_dictionary['uri'].split('/')[1]
+            # check if the user already has a secret
+            # Print the table contents
+            print('checking db', db)
+            if user in db:
+            #for row in con.execute(f"select shared_secret from users where 'user_token' = '{user}';"):
+                print("got something! makeing server COTP")
+                self.send_response(200)
+                self.send_header("COTP_secret", "true")
+                self.end_headers()
+                #self.wfile.write(b'Server Generated COTP') #TODO: maybe make a better 404 page?
+                return
+            else:
+                # we didn't get a db hit, let's let the client know they
+                # can register a shared secret
+                self.send_response(HTTPStatus.OK)
+                r = """
+                \n
+                <html>
+                <body>
+                <form>
+                    <label for='secret'>Secret</label> 
+                    <input name='secret'>
+                    <input type='submit'>
+                </form>
+                </body>
+                </html>
+                \n
+                """
+                self.send_header("COTP_secret", "false")
+                self.send_header("Content-type", "text/html")
+                self.send_header("Content-length", str(len(r)))
+                self.end_headers()
+                self.wfile.write(bytes(r,'utf-8'))
+                return
+
+        elif ( len( re.split(r'\/|\?|\=', self.path) )  == 4 ):
+            [_, user, _, secret] = re.split(r'\/|\?|\=', self.path)
+            print( f"Saving to DB, {user} = {secret}" )
+            db[user] = secret
+            print(db)
+            #con.execute(f"insert into users(user_token, shared_secret) values ('{user}', '{secret}');")
+            # Redirect to URI (without password)
+            r = """
+            <html>
+              <head>
+                <meta http-equiv="refresh" content="0;url={}" />
+              </head>
+            </html>
+            """.format(forwarded_headers_dictionary['uri'])
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(bytes(r, 'utf-8'))
+            return
+        
         
         # we didn't git a token, so we just return 404
         self.send_response(404)
@@ -72,7 +132,7 @@ class HTTPHandler(SimpleHTTPRequestHandler):
         print(content_length)
         print(query)
         print(body)
-        return super().do_POST()
+        return 
 
 
 print('About to listen on http://localhost:8000')
