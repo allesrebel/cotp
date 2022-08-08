@@ -51,11 +51,11 @@ function process_RTT(changes) {
 			// extract out cipher suite + tcp RTT
 			var cipher_suite = cached_security_info.cipherSuite;
 			var protocol_version = cached_security_info.protocolVersion;
-			//var corrected_rtt = Math.floor(changes[item].newValue['tcp_rtt'] / 10);
+			var corrected_rtt = Math.floor(changes[item].newValue['tcp_rtt'] / 7);
 
 			// Create message to sign using shared secret TODO: FIX TCP_RTT
-			var message = String(time_frame) + String(cipher_suite) + String(protocol_version);// + String(corrected_rtt);
-			const message_buf = new ArrayBuffer(100);
+			var message = String(time_frame) + String(cipher_suite) + String(protocol_version) + String(corrected_rtt);
+			const message_buf = new ArrayBuffer(message.length);
 			const message_view = new Uint8Array(message_buf);
 			message_view.set(message.split('').map(char => char.charCodeAt(0)));
 
@@ -64,6 +64,8 @@ function process_RTT(changes) {
 			const secret = new Uint8Array(buf);
 			// TODO: Make this User Fillable later
 			secret.set("helloworld".split('').map(char => char.charCodeAt(0)));
+			console.log(secret);
+			console.log(message_view);
 
 			window.crypto.subtle.importKey(
 				"raw",
