@@ -47,10 +47,14 @@ def get_hotp_token(secret, msg):
     # secret -> just unsigned bytes
     msg_array = bytearray()
     msg_array.extend(map(ord, msg))
+    print(msg_array)
 
     # RFC says to use specific bytes
+    secret_padded = bytes(secret, 'utf-8') + b'\0'*(32-len(secret))
+    print(secret_padded)
     h = hmac.new(bytes(secret,'utf-8'), msg_array, hashlib.sha1).digest()
-    o = h[19] & 15
+    print( 'digest', h )
+    o = h[19] & 0xf
 
     #Generate a hash using HMAC SHA1
     # grab the first 3 bytes after 20th, undo endiness
@@ -65,10 +69,10 @@ def get_cotp(secret, cipher_suite, protocol_version, tcp_rtt_us):
 
     # convert tcp RTT to ms
     tcp_rtt_ms = ( int(tcp_rtt_us) // 1000 ) # 34 ms from 34000 us
-    tcp_corrected = tcp_rtt_ms//10;
+    tcp_corrected = tcp_rtt_ms//7;
 
-    # stick everything together TODO: Fix TCP_RTT
-    msg = str(time_Frame) + str(cipher_suite) + str(protocol_version) # + str(tcp_corrected)
+    # stick everything together TODO: Fix TCP_RTT with something more robust
+    msg = str(time_Frame) + str(cipher_suite) + str(protocol_version) + str(tcp_corrected)
 
     #ensuring to give the same otp for 30 seconds
     cotp = str( get_hotp_token(secret, msg) )
@@ -120,7 +124,7 @@ class HTTPHandler(SimpleHTTPRequestHandler):
                 secret = db[user]
                 cipher_suite = forwarded_headers_dictionary['s_csuite']
                 tls_proto = forwarded_headers_dictionary['s_proto']
-                tcp_rtt_us = tls_proto = forwarded_headers_dictionary['tcp_rtt']
+                tcp_rtt_us = forwarded_headers_dictionary['tcp_rtt']
                 cotp = get_cotp( db[user], cipher_suite, tls_proto, tcp_rtt_us )
 
                 print( cotp, tcp_rtt_us )
