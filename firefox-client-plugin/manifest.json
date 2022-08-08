@@ -1,0 +1,49 @@
+{
+    "manifest_version": 2,
+    "name": "COTPDemo",
+    "short_name": "COTPDemo",
+    "version": "0.0.1",
+    "description": "__MSG_extensionDescription__",
+    "homepage_url": "https://github.com/allesrebel/cotp",
+    "developer": {
+        "name": "Alles Rebel",
+        "url": "https://github.com/allesrebel/cotp"
+    },
+    "icons": {
+    },
+    "applications": {
+        "gecko": {
+            "strict_min_version": "62.0"
+        }
+    },
+    "background": {
+        "scripts": [
+            "background.js"
+        ]
+    },
+    "content_scripts":[
+        {
+            "matches": ["https://*/*"],
+            "js": ["content.js"]
+        }
+    ],
+    "page_action": {
+        "browser_style": true,
+        "default_title": "COTPDemo",
+        "show_matches": [
+            "https://*/*"
+        ],
+        "hide_matches": [
+            "https://addons.mozilla.org/*"
+        ]
+    },
+    "permissions": [
+        "tabs",
+        "webNavigation",
+        "webRequest",
+        "webRequestBlocking",
+        "storage",
+        "http://*/*",
+        "https://*/*"
+    ]
+}
