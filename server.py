@@ -120,7 +120,7 @@ class HTTPHandler(SimpleHTTPRequestHandler):
                 secret = db[user]
                 cipher_suite = forwarded_headers_dictionary['s_csuite']
                 tls_proto = forwarded_headers_dictionary['s_proto']
-                tcp_rtt_us = tls_proto = forwarded_headers_dictionary['tcp_rtt']
+                tcp_rtt_us = forwarded_headers_dictionary['tcp_rtt']
                 cotp = get_cotp( db[user], cipher_suite, tls_proto, tcp_rtt_us )
 
                 print( cotp, tcp_rtt_us )
