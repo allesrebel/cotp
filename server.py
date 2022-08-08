@@ -39,6 +39,47 @@ create table if not exists users
 db = {}
 
 ##
+# The COTP Party
+##
+import hmac, base64, struct, hashlib, time
+
+def get_hotp_token(secret, msg):
+    # secret -> just unsigned bytes
+    msg_array = bytearray()
+    msg_array.extend(map(ord, msg))
+
+    # RFC says to use specific bytes
+    h = hmac.new(bytes(secret,'utf-8'), msg_array, hashlib.sha1).digest()
+    o = h[19] & 15
+
+    #Generate a hash using HMAC SHA1
+    # grab the first 3 bytes after 20th, undo endiness
+    key_byte = struct.unpack(">I", h[o:o+4])[0]
+    # convert key byte into a code
+    htop = (key_byte & 0x7fffffff) % 1000000
+    return htop
+
+def get_cotp(secret, cipher_suite, protocol_version, tcp_rtt_us):
+    # gather 30s timeframe, from current time
+    time_Frame = (int(time.time())//30)
+
+    # convert tcp RTT to ms
+    tcp_rtt_ms = ( int(tcp_rtt_us) // 1000 ) # 34 ms from 34000 us
+    tcp_corrected = tcp_rtt_ms//10;
+
+    # stick everything together TODO: Fix TCP_RTT
+    msg = str(time_Frame) + str(cipher_suite) + str(protocol_version) # + str(tcp_corrected)
+
+    #ensuring to give the same otp for 30 seconds
+    cotp = str( get_hotp_token(secret, msg) )
+
+    #adding 0 in the beginning till OTP has 6 digits
+    while len(cotp) != 6 :
+        cotp += '0'
+
+    return cotp
+
+##
 # The actual webserver part
 ## 
 from http.server import HTTPServer, SimpleHTTPRequestHandler, HTTPStatus
@@ -74,7 +115,20 @@ class HTTPHandler(SimpleHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("COTP_secret", "true")
                 self.end_headers()
-                #self.wfile.write(b'Server Generated COTP') #TODO: maybe make a better 404 page?
+
+                # Let's Generate a COTP!
+                secret = db[user]
+                cipher_suite = forwarded_headers_dictionary['s_csuite']
+                tls_proto = forwarded_headers_dictionary['s_proto']
+                tcp_rtt_us = tls_proto = forwarded_headers_dictionary['tcp_rtt']
+                cotp = get_cotp( db[user], cipher_suite, tls_proto, tcp_rtt_us )
+
+                print( cotp, tcp_rtt_us )
+
+                # gather 30s timeframe, from current time
+                self.wfile.write(b'Server Generated COTP\n') 
+                self.wfile.write(b'server COTP is ' + bytes(cotp,'utf-8') + b'\n' )
+                self.wfile.write(b'including ' + bytes(str(tcp_rtt_us), 'utf-8'))
                 return
             else:
                 # we didn't get a db hit, let's let the client know they
